@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hex Checksum Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input[type="text"] {
+            width: 300px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            margin-bottom: 20px;
+        }
+        .output {
+            margin-top: 10px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Hex Checksum Calculator</h1>
+<p>Enter your data bytes separated by spaces:</p>
+<input type="text" id="dataInput" placeholder="Example: 0x12 0x34 56 78 AB">
+<div class="output" id="hexOutput"></div>
+<button onclick="calculateChecksum()">Calculate Checksum</button>
+
+<h2>Result:</h2>
+<p id="result"></p>
+
+<script>
+    function calculateChecksum() {
+        const dataInput = document.getElementById("dataInput").value;
+        const bytes = dataInput.trim().split(/\s+/);
+
+        // Convert all bytes to hex with 0x prefix if necessary
+        const hexBytes = bytes.map(byte => {
+            return byte.startsWith("0x") ? byte : "0x" + byte;
+        });
+
+        // Check if any byte was converted (if original input lacks 0x)
+        const originalLackedPrefix = bytes.some(byte => !byte.startsWith("0x"));
+
+        // Display hex bytes if conversion was needed
+        if (originalLackedPrefix) {
+            document.getElementById("hexOutput").innerText = "Converted to hex: " + hexBytes.join(", ");
+        } else {
+            document.getElementById("hexOutput").innerText = "";
+        }
+
+        // Parse hex bytes and sum them
+        let sum = 0;
+        for (const hexByte of hexBytes) {
+            const value = parseInt(hexByte, 16);
+            sum += value;
+        }
+
+        // Calculate checksum (bitwise NOT of the sum)
+        const checksum = (~sum) & 0xFF;
+
+        // Display result
+        document.getElementById("result").innerText = `Hex Checksum: 0x${checksum.toString(16).toUpperCase().padStart(2, '0')}`;
+    }
+</script>
+
+</body>
+</html>
