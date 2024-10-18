@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>8x8 Grid</title>
+    <style>
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(8, 40px);
+            grid-template-rows: repeat(8, 40px);
+            gap: 2px;
+        }
+        .grid div {
+            width: 40px;
+            height: 40px;
+            background-color: lightgray;
+            border: 1px solid #ccc;
+        }
+        .output {
+            margin-top: 20px;
+            font-family: monospace;
+            white-space: pre;
+        }
+    </style>
+</head>
+<body>
+    <div class="grid" id="grid">
+        <!-- 64 divs for an 8x8 grid -->
+        <script>
+            for (let i = 0; i < 64; i++) {
+                document.write('<div onclick="toggleColor(this, ' + i + ')"></div>');
+            }
+        </script>
+    </div>
+    <div class="output" id="output"></div>
+    <div class="output" id="formattedOutput"></div>
+    <script>
+        const gridState = Array(64).fill(0);  // Initialize a 64-element array to keep track of the grid state
+
+        function toggleColor(element, index) {
+            if (element.style.backgroundColor === "red") {
+                element.style.backgroundColor = "lightgray";
+                gridState[index] = 0;
+            } else {
+                element.style.backgroundColor = "red";
+                gridState[index] = 1;
+            }
+            updateHexOutput();
+        }
+
+        function updateHexOutput() {
+            let hexOutput = '';
+            let formattedOutput = '';
+            for (let row = 0; row < 8; row++) {
+                let byte = 0;
+                for (let col = 0; col < 8; col++) {
+                    let bit = gridState[row * 8 + col];
+                    byte = (byte << 1) | bit;
+                }
+                let hexByte = byte.toString(16).padStart(2, '0').toUpperCase();
+                hexOutput += hexByte + ' ';
+                formattedOutput += '0x' + hexByte + ', ';
+            }
+            document.getElementById('output').textContent = hexOutput.trim();
+            document.getElementById('formattedOutput').textContent = formattedOutput.slice(0, -2);
+        }
+    </script>
+</body>
+</html>
