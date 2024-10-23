@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字符串转换c数组工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #inputString, #output1, #output2 {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+            box-sizing: border-box; /* 包括padding在内的宽度 */
+        }
+        button {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>字符串转换工具</h1>
+    <label for="inputString">输入字符串:</label>
+    <textarea id="inputString"></textarea>
+    <button onclick="convertString()">转换</button>
+    <h2>输出1: 十六进制表示</h2>
+    <textarea id="output1" readonly></textarea>
+    <h2>输出2: C语言数组格式</h2>
+    <textarea id="output2" readonly></textarea>
+
+    <script>
+        function convertString() {
+            const inputString = document.getElementById('inputString').value;
+            let hexArray = [];
+            let hexStringArray = [];
+            
+            for (let i = 0; i < inputString.length; i++) {
+                let hex = inputString.charCodeAt(i).toString(16).toUpperCase().padStart(2, '0');
+                hexArray.push(hex);
+                hexStringArray.push('0x' + hex);
+            }
+
+            document.getElementById('output1').value = hexArray.join(' ');
+            document.getElementById('output2').value = '{ ' + hexStringArray.join(', ') + ' };';
+        }
+    </script>
+</body>
+</html>
