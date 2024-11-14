@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>身份证校验</title>
+    <style>
+        .valid {
+            color: green;
+            font-weight: bold;
+        }
+        .invalid {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
     <script>
         function validateIDCard(idCard) {
             if (idCard.length !== 18) {
@@ -36,7 +46,15 @@
         function checkIDCard() {
             const idCard = document.getElementById("idcard").value;
             const result = validateIDCard(idCard);
-            document.getElementById("result").textContent = result;
+            const resultElement = document.getElementById("result");
+
+            if (result === "身份证号码正确") {
+                resultElement.textContent = result;
+                resultElement.className = "valid";
+            } else {
+                resultElement.textContent = result;
+                resultElement.className = "invalid";
+            }
         }
     </script>
 </head>
