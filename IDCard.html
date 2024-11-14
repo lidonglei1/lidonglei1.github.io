@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>身份证校验</title>
+    <script>
+        function validateIDCard(idCard) {
+            if (idCard.length !== 18) {
+                return "身份证号码长度不正确";
+            }
+
+            const weights = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
+            const checkDigits = ['1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2'];
+
+            const idCardArray = idCard.split('');
+            let sum = 0;
+
+            for (let i = 0; i < 17; i++) {
+                if (isNaN(idCardArray[i])) {
+                    return "身份证号码格式不正确";
+                }
+                sum += idCardArray[i] * weights[i];
+            }
+
+            const mod = sum % 11;
+            const checkDigit = checkDigits[mod];
+
+            if (checkDigit === idCardArray[17].toUpperCase()) {
+                return "身份证号码正确";
+            } else {
+                return "身份证号码错误";
+            }
+        }
+
+        function checkIDCard() {
+            const idCard = document.getElementById("idcard").value;
+            const result = validateIDCard(idCard);
+            document.getElementById("result").textContent = result;
+        }
+    </script>
+</head>
+<body>
+    <h1>身份证校验</h1>
+    <label for="idcard">输入身份证号码:</label>
+    <input type="text" id="idcard" name="idcard">
+    <button onclick="checkIDCard()">校验</button>
+    <p id="result"></p>
+</body>
+</html>
