@@ -32,8 +32,10 @@
 <div class="output" id="hexOutput"></div>
 <button onclick="calculateChecksum()">Calculate Checksum</button>
 
-<h2>Result:</h2>
-<p id="result"></p>
+<h2>Result1:</h2>
+<p id="result1"></p>
+<h2>Result2:</h2>
+<p id="result2"></p>
 
 <script>
     function calculateChecksum() {
@@ -63,10 +65,13 @@
         }
 
         // Calculate checksum (bitwise NOT of the sum)
-        const checksum = (~sum) & 0xFF;
+        const checksum1 = (sum) & 0xFF;
+
+        const checksum2 = (~sum) & 0xFF;
 
         // Display result
-        document.getElementById("result").innerText = `Hex Checksum: 0x${checksum.toString(16).toUpperCase().padStart(2, '0')}`;
+        document.getElementById("result1").innerText = `Hex Checksum (sum & 0xFF): 0x${checksum1.toString(16).toUpperCase().padStart(2, '0')}`;
+        document.getElementById("result2").innerText = `Hex Checksum ((~sum) & 0xFF): 0x${checksum2.toString(16).toUpperCase().padStart(2, '0')}`;
     }
 </script>
 
