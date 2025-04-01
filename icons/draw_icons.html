@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C Array to Canvas</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        #inputArea {
+            width: 100%;
+            height: 200px;
+        }
+    </style>
+</head>
+<body>
+
+<textarea id="inputArea" placeholder="粘贴你的C语言数组到这里"></textarea>
+<br>
+<button onclick="drawCanvas()">显示图像</button>
+<br>
+<canvas id="canvas" width="16" height="16"></canvas>
+
+<script>
+    function drawCanvas() {
+        // 获取用户输入的数组字符串
+        const inputString = document.getElementById('inputArea').value;
+
+        // 从输入字符串中提取数组部分
+        const arrayString = inputString.match(/\{([\s\S]+?)\}/)[1].trim();
+
+        // 将数组字符串转换为JavaScript数组
+        const array = arrayString.split(',').map(item => parseInt(item.trim(), 16));
+
+        // 获取canvas和context
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 清空canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 设置图像数组的宽度和高度
+        const width = 16;
+        const height = 16;
+
+        // 遍历数组并绘制到canvas上
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                // 计算位置索引
+                const byteIndex = Math.floor((y * width + x) / 8);
+                const bitIndex = x % 8;
+
+                // 从数组中获取对应的字节并检查对应位置的bit是否为1
+                const byte = array[byteIndex];
+                const isBitSet = (byte & (1 << bitIndex)) !== 0;
+
+                // 根据isBitSet值来设置像素颜色，1代表黑色，0代表白色
+                ctx.fillStyle = isBitSet ? 'black' : 'white';
+                
+                // 绘制方块
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
