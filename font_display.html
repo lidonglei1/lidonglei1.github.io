@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字模数组显示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        .input-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .input-section label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .input-section input, .input-section textarea {
+            margin: 5px 0;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .input-section input[type="number"] {
+            width: 100px;
+        }
+        .input-section textarea {
+            width: 500px;
+            height: 100px;
+            font-family: monospace;
+        }
+        .input-section button {
+            padding: 10px 20px;
+            background-color: #007cba;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .input-section button:hover {
+            background-color: #005a8b;
+        }
+        .grid-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .grid {
+            display: grid;
+            gap: 1px;
+            border: 2px solid #333;
+            padding: 5px;
+            background-color: #333;
+        }
+        .grid div {
+            width: 20px;
+            height: 20px;
+            background-color: lightgray;
+            border: 1px solid #999;
+        }
+        .grid div.active {
+            background-color: red;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .info {
+            color: #666;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>字模数组显示工具</h1>
+    
+    <div class="input-section">
+        <label for="fontSize">字体尺寸 (n×n):</label>
+        <input type="number" id="fontSize" min="1" max="64" value="16" placeholder="输入字体尺寸">
+        
+        <label for="fontArray">字模数组数据:</label>
+        <textarea id="fontArray" placeholder="输入字模数组，支持多种格式：
+- 十六进制: 0x00, 0xFF, 0x3C, ...
+- 十进制: 0, 255, 60, ...
+- 二进制: 0b00000000, 0b11111111, ...
+- C语言数组: unsigned char font[] = {0x00, 0xFF, ...};
+- 多个字符数组: {0x00,...},{0xFF,...} 会自动提取第一个
+- 支持注释: // 单行注释 /* 多行注释 */
+- 混合格式也支持"></textarea>
+        
+        <label for="charIndex">选择字符索引 (从0开始):</label>
+        <input type="number" id="charIndex" min="0" value="0" placeholder="多个字符时选择显示第几个">
+        
+        <div class="info">
+            提示：字模数组应包含 n×⌈n/8⌉ 个字节（如16×16字体需要32字节，8×8需要8字节）<br>
+            每行用⌈n/8⌉个字节表示，每个字节的8位对应8个像素点<br>
+            可直接粘贴C语言数组代码，程序会自动移除数组声明、括号和注释
+        </div>
+        
+        <button onclick="displayFont()">显示字模</button>
+        <button onclick="clearDisplay()">清空显示</button>
+    </div>
+    
+    <div id="errorMsg" class="error"></div>
+    
+    <div class="grid-container">
+        <div class="grid" id="fontGrid"></div>
+    </div>
+
+    <script>
+        function parseArrayData(input, fontSize, charIndex = 0) {
+            // 移除C语言风格的注释 (// 和 /* */)
+            let cleanInput = input.replace(/\/\/.*$/gm, ''); // 移除单行注释
+            cleanInput = cleanInput.replace(/\/\*[\s\S]*?\*\//g, ''); // 移除多行注释
+            
+            // 移除C语言数组声明部分 (如: unsigned char fontData[] = )
+            cleanInput = cleanInput.replace(/^\s*\w+\s+\w+\s*\[\s*\d*\s*\]\s*=\s*/gm, '');
+            cleanInput = cleanInput.replace(/^\s*\w+\s+\w+\s*\[\s*\]\s*=\s*/gm, '');
+            cleanInput = cleanInput.replace(/^\s*\w+\s*\[\s*\d*\s*\]\s*=\s*/gm, '');
+            cleanInput = cleanInput.replace(/^\s*\w+\s*\[\s*\]\s*=\s*/gm, '');
+            
+            // 移除所有的花括号 {} (包括多个)
+            cleanInput = cleanInput.replace(/[{}]/g, '');
+            
+            // 移除所有的方括号 []
+            cleanInput = cleanInput.replace(/[\[\]]/g, '');
+            
+            // 移除结尾的分号和逗号
+            cleanInput = cleanInput.replace(/[;,]\s*$/g, '');
+            
+            // 将多个连续的逗号替换为单个逗号
+            cleanInput = cleanInput.replace(/,+/g, ',');
+            
+            // 移除行首和行尾的逗号
+            cleanInput = cleanInput.replace(/^,+|,+$/g, '');
+            
+            // 移除多余的空白字符，但保留逗号分隔
+            cleanInput = cleanInput.replace(/\s+/g, ' ').trim();
+            
+            // 清理逗号周围的空格
+            cleanInput = cleanInput.replace(/\s*,\s*/g, ',');
+            
+            // 按逗号分割并过滤空字符串
+            let parts = cleanInput.split(',').filter(part => part.trim().length > 0);
+            
+            let allData = [];
+            
+            for (let part of parts) {
+                // 去除部分前后的空白字符
+                part = part.trim();
+                
+                // 跳过空字符串
+                if (!part) continue;
+                
+                let value;
+                
+                // 十六进制格式 (0x开头)
+                if (part.startsWith('0x') || part.startsWith('0X')) {
+                    value = parseInt(part, 16);
+                }
+                // 二进制格式 (0b开头)
+                else if (part.startsWith('0b') || part.startsWith('0B')) {
+                    value = parseInt(part.substring(2), 2);
+                }
+                // 十进制格式
+                else {
+                    value = parseInt(part, 10);
+                }
+                
+                // 检查是否为有效数字
+                if (isNaN(value) || value < 0 || value > 255) {
+                    throw new Error(`无效的数值: ${part}`);
+                }
+                
+                allData.push(value);
+            }
+            
+            // 如果数据长度刚好等于fontSize，直接返回
+            if (allData.length === fontSize) {
+                return allData;
+            }
+            
+            // 如果数据长度大于fontSize，尝试按字符分组
+            if (allData.length > fontSize) {
+                const numChars = Math.floor(allData.length / fontSize);
+                const startIndex = charIndex * fontSize;
+                const endIndex = startIndex + fontSize;
+                
+                if (startIndex >= allData.length) {
+                    throw new Error(`字符索引 ${charIndex} 超出范围，最大索引为 ${numChars - 1}`);
+                }
+                
+                return allData.slice(startIndex, endIndex);
+            }
+            
+            // 如果数据长度小于fontSize，返回所有数据
+            return allData;
+        }
+
+        function displayFont() {
+            const errorMsg = document.getElementById('errorMsg');
+            const fontGrid = document.getElementById('fontGrid');
+            
+            // 清空错误信息
+            errorMsg.textContent = '';
+            
+            try {
+                // 获取输入值
+                const fontSize = parseInt(document.getElementById('fontSize').value);
+                const arrayInput = document.getElementById('fontArray').value.trim();
+                const charIndex = parseInt(document.getElementById('charIndex').value) || 0;
+                
+                // 验证输入
+                if (!fontSize || fontSize < 1 || fontSize > 64) {
+                    throw new Error('字体尺寸必须在1-64之间');
+                }
+                
+                if (!arrayInput) {
+                    throw new Error('请输入字模数组数据');
+                }
+                
+                if (charIndex < 0) {
+                    throw new Error('字符索引不能为负数');
+                }
+                
+                // 计算所需的字节数
+                const bytesPerRow = Math.ceil(fontSize / 8);
+                const expectedBytes = fontSize * bytesPerRow;
+                
+                // 解析数组数据
+                const fontData = parseArrayData(arrayInput, expectedBytes, charIndex);
+                
+                // 验证数组长度
+                if (fontData.length < expectedBytes) {
+                    throw new Error(`字模数组长度不足，${fontSize}×${fontSize}字体需要 ${expectedBytes} 个字节，实际获得 ${fontData.length} 个`);
+                }
+                
+                // 创建网格
+                createGrid(fontSize);
+                
+                // 填充字模数据
+                fillFontData(fontData, fontSize);
+                
+            } catch (error) {
+                errorMsg.textContent = error.message;
+            }
+        }
+
+        function createGrid(size) {
+            const fontGrid = document.getElementById('fontGrid');
+            
+            // 设置网格样式
+            fontGrid.style.gridTemplateColumns = `repeat(${size}, 20px)`;
+            fontGrid.style.gridTemplateRows = `repeat(${size}, 20px)`;
+            
+            // 清空现有内容
+            fontGrid.innerHTML = '';
+            
+            // 创建网格单元
+            for (let i = 0; i < size * size; i++) {
+                const cell = document.createElement('div');
+                fontGrid.appendChild(cell);
+            }
+        }
+
+        function fillFontData(fontData, size) {
+            const cells = document.querySelectorAll('#fontGrid div');
+            
+            // 清除所有活动状态
+            cells.forEach(cell => cell.classList.remove('active'));
+            
+            // 计算每行需要多少个字节
+            const bytesPerRow = Math.ceil(size / 8);
+            
+            for (let row = 0; row < size; row++) {
+                for (let byteInRow = 0; byteInRow < bytesPerRow; byteInRow++) {
+                    const dataIndex = row * bytesPerRow + byteInRow;
+                    
+                    // 如果数据索引超出范围，跳过
+                    if (dataIndex >= fontData.length) {
+                        break;
+                    }
+                    
+                    const byteValue = fontData[dataIndex];
+                    
+                    // 处理当前字节的8位
+                    for (let bit = 0; bit < 8; bit++) {
+                        const col = byteInRow * 8 + bit;
+                        
+                        // 如果列数超出网格尺寸，跳过
+                        if (col >= size) {
+                            break;
+                        }
+                        
+                        // 从最高位开始检查每一位
+                        const bitValue = (byteValue >> (7 - bit)) & 1;
+                        const cellIndex = row * size + col;
+                        
+                        if (cellIndex < cells.length && bitValue === 1) {
+                            cells[cellIndex].classList.add('active');
+                        }
+                    }
+                }
+            }
+        }
+
+        function clearDisplay() {
+            const fontGrid = document.getElementById('fontGrid');
+            const errorMsg = document.getElementById('errorMsg');
+            
+            fontGrid.innerHTML = '';
+            errorMsg.textContent = '';
+            document.getElementById('fontArray').value = '';
+        }
+
+        // 页面加载时显示默认示例
+        window.onload = function() {
+            // 设置默认的16x16汉字"中"的字模数据示例
+            document.getElementById('fontArray').value = `0x00, 0x00, 0x1F, 0xF0, 0x10, 0x10, 0x10, 0x10, 
+0x1F, 0xF0, 0x10, 0x10, 0x10, 0x10, 0x1F, 0xF0`;
+            displayFont();
+        };
+    </script>
+</body>
+</html>
