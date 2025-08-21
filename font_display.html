@@ -101,9 +101,23 @@
         <label for="charIndex">选择字符索引 (从0开始):</label>
         <input type="number" id="charIndex" min="0" value="0" placeholder="多个字符时选择显示第几个">
         
+        <label for="scanMode">取模规则:</label>
+        <select id="scanMode">
+            <option value="font12x12">12x12字库模式 (高位在前)</option>
+            <option value="continuous">连续位流 (逐行扫描)</option>
+            <option value="row_bytes">行字节模式 (每行对齐字节边界)</option>
+            <option value="column_bytes">列字节模式 (按列取模)</option>
+            <option value="column_continuous">列连续 (逐列扫描)</option>
+        </select>
+        
         <div class="info">
-            提示：字模数组应包含 n×⌈n/8⌉ 个字节（如16×16字体需要32字节，8×8需要8字节）<br>
-            每行用⌈n/8⌉个字节表示，每个字节的8位对应8个像素点<br>
+            提示：字模数组应包含 ⌈(n×n)/8⌉ 个字节（如12×12需要18字节，16×16需要32字节，8×8需要8字节）<br>
+            <strong>取模规则说明：</strong><br>
+            • <strong>12x12字库模式</strong>：专门为12x12字库设计，高位在前，按行连续存储<br>
+            • <strong>连续位流</strong>：原始模式，按行扫描，bit0在左，连续存储<br>
+            • <strong>行字节模式</strong>：每行数据对齐到字节边界，常用于LCD显示<br>
+            • <strong>列字节模式</strong>：按列取模，每列数据对齐到字节边界<br>
+            • <strong>列连续</strong>：数据按列扫描，连续存储所有像素位<br>
             可直接粘贴C语言数组代码，程序会自动移除数组声明、括号和注释
         </div>
         
@@ -233,9 +247,9 @@
                     throw new Error('字符索引不能为负数');
                 }
                 
-                // 计算所需的字节数
-                const bytesPerRow = Math.ceil(fontSize / 8);
-                const expectedBytes = fontSize * bytesPerRow;
+                // 计算所需的字节数 - 总像素数除以8
+                const totalPixels = fontSize * fontSize;
+                const expectedBytes = Math.ceil(totalPixels / 8);
                 
                 // 解析数组数据
                 const fontData = parseArrayData(arrayInput, expectedBytes, charIndex);
@@ -275,38 +289,162 @@
 
         function fillFontData(fontData, size) {
             const cells = document.querySelectorAll('#fontGrid div');
+            const scanMode = document.getElementById('scanMode').value;
             
             // 清除所有活动状态
             cells.forEach(cell => cell.classList.remove('active'));
             
-            // 计算每行需要多少个字节
+            switch (scanMode) {
+                case 'font12x12':
+                    fillFont12x12(fontData, size, cells);
+                    break;
+                case 'continuous':
+                    fillContinuous(fontData, size, cells);
+                    break;
+                case 'row_bytes':
+                    fillRowBytes(fontData, size, cells);
+                    break;
+                case 'column_bytes':
+                    fillColumnBytes(fontData, size, cells);
+                    break;
+                case 'column_continuous':
+                    fillColumnContinuous(fontData, size, cells);
+                    break;
+                default:
+                    fillContinuous(fontData, size, cells);
+            }
+        }
+
+        // 12x12字库模式 (高位在前，按行连续)
+        function fillFont12x12(fontData, size, cells) {
+            let debugInfo = '12x12字库模式解析:\n';
+            debugInfo += '原始数据: ' + fontData.map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(', ') + '\n\n';
+            
+            // 将所有字节转换为完整的位流，高位在前
+            let allBits = '';
+            for (let i = 0; i < fontData.length; i++) {
+                const byte = fontData[i];
+                for (let bit = 7; bit >= 0; bit--) {
+                    allBits += ((byte >> bit) & 1).toString();
+                }
+            }
+            
+            debugInfo += `总位数: ${allBits.length}\n`;
+            debugInfo += `位流: ${allBits}\n\n`;
+            
+            // 按行填充，每行size个位
+            for (let row = 0; row < size; row++) {
+                let rowBits = '';
+                for (let col = 0; col < size; col++) {
+                    const bitIndex = row * size + col;
+                    
+                    if (bitIndex < allBits.length) {
+                        const bitValue = allBits[bitIndex];
+                        rowBits += bitValue;
+                        
+                        const cellIndex = row * size + col;
+                        if (cellIndex < cells.length && bitValue === '1') {
+                            cells[cellIndex].classList.add('active');
+                        }
+                    } else {
+                        rowBits += '0';
+                    }
+                }
+                debugInfo += `行${row.toString().padStart(2)}: ${rowBits}\n`;
+            }
+            
+            console.log(debugInfo);
+        }
+
+        // 连续位流模式 (逐行扫描，低位在前 - 原始方式)
+        function fillContinuous(fontData, size, cells) {
+            let bitStream = '';
+            for (let i = 0; i < fontData.length; i++) {
+                const byte = fontData[i];
+                // 原始方式：直接转换为二进制字符串 (低位在前)
+                const binaryString = byte.toString(2).padStart(8, '0');
+                bitStream += binaryString;
+            }
+            
+            for (let row = 0; row < size; row++) {
+                for (let col = 0; col < size; col++) {
+                    const bitIndex = row * size + col;
+                    if (bitIndex < bitStream.length && bitStream[bitIndex] === '1') {
+                        const cellIndex = row * size + col;
+                        if (cellIndex < cells.length) {
+                            cells[cellIndex].classList.add('active');
+                        }
+                    }
+                }
+            }
+        }
+
+        // 行字节模式 (每行对齐字节边界)
+        function fillRowBytes(fontData, size, cells) {
             const bytesPerRow = Math.ceil(size / 8);
             
             for (let row = 0; row < size; row++) {
                 for (let byteInRow = 0; byteInRow < bytesPerRow; byteInRow++) {
                     const dataIndex = row * bytesPerRow + byteInRow;
-                    
-                    // 如果数据索引超出范围，跳过
-                    if (dataIndex >= fontData.length) {
-                        break;
-                    }
+                    if (dataIndex >= fontData.length) break;
                     
                     const byteValue = fontData[dataIndex];
                     
-                    // 处理当前字节的8位
                     for (let bit = 0; bit < 8; bit++) {
                         const col = byteInRow * 8 + bit;
+                        if (col >= size) break;
                         
-                        // 如果列数超出网格尺寸，跳过
-                        if (col >= size) {
-                            break;
-                        }
-                        
-                        // 从最高位开始检查每一位
                         const bitValue = (byteValue >> (7 - bit)) & 1;
                         const cellIndex = row * size + col;
                         
                         if (cellIndex < cells.length && bitValue === 1) {
+                            cells[cellIndex].classList.add('active');
+                        }
+                    }
+                }
+            }
+        }
+
+        // 列字节模式 (按列取模)
+        function fillColumnBytes(fontData, size, cells) {
+            const bytesPerCol = Math.ceil(size / 8);
+            
+            for (let col = 0; col < size; col++) {
+                for (let byteInCol = 0; byteInCol < bytesPerCol; byteInCol++) {
+                    const dataIndex = col * bytesPerCol + byteInCol;
+                    if (dataIndex >= fontData.length) break;
+                    
+                    const byteValue = fontData[dataIndex];
+                    
+                    for (let bit = 0; bit < 8; bit++) {
+                        const row = byteInCol * 8 + bit;
+                        if (row >= size) break;
+                        
+                        const bitValue = (byteValue >> (7 - bit)) & 1;
+                        const cellIndex = row * size + col;
+                        
+                        if (cellIndex < cells.length && bitValue === 1) {
+                            cells[cellIndex].classList.add('active');
+                        }
+                    }
+                }
+            }
+        }
+
+        // 列连续模式 (逐列扫描)
+        function fillColumnContinuous(fontData, size, cells) {
+            let bitStream = '';
+            for (let i = 0; i < fontData.length; i++) {
+                const binaryString = fontData[i].toString(2).padStart(8, '0');
+                bitStream += binaryString;
+            }
+            
+            for (let col = 0; col < size; col++) {
+                for (let row = 0; row < size; row++) {
+                    const bitIndex = col * size + row;
+                    if (bitIndex < bitStream.length && bitStream[bitIndex] === '1') {
+                        const cellIndex = row * size + col;
+                        if (cellIndex < cells.length) {
                             cells[cellIndex].classList.add('active');
                         }
                     }
@@ -325,9 +463,10 @@
 
         // 页面加载时显示默认示例
         window.onload = function() {
-            // 设置默认的16x16汉字"中"的字模数据示例
-            document.getElementById('fontArray').value = `0x00, 0x00, 0x1F, 0xF0, 0x10, 0x10, 0x10, 0x10, 
-0x1F, 0xF0, 0x10, 0x10, 0x10, 0x10, 0x1F, 0xF0`;
+            // 设置默认的12x12汉字"儿"的字模数据示例
+            document.getElementById('fontSize').value = '12';
+            document.getElementById('scanMode').value = 'font12x12';
+            document.getElementById('fontArray').value = `0x11,0x00,0x11,0x00,0x11,0x00,0x11,0x00,0x11,0x00,0x11,0x00,0x11,0x00,0x11,0x00,0x21,0x00,0x21,0x20,0x41,0x20,0x80,0xE0`;
             displayFont();
         };
     </script>
