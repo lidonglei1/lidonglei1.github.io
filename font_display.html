@@ -103,7 +103,7 @@
         
         <label for="scanMode">取模规则:</label>
         <select id="scanMode">
-            <option value="font12x12">12x12字库模式 (高位在前)</option>
+            <option value="font12x12">通用字库模式 (高位在前，横向先上下后左右)</option>
             <option value="continuous">连续位流 (逐行扫描)</option>
             <option value="row_bytes">行字节模式 (每行对齐字节边界)</option>
             <option value="column_bytes">列字节模式 (按列取模)</option>
@@ -113,7 +113,7 @@
         <div class="info">
             提示：字模数组应包含 ⌈(n×n)/8⌉ 个字节（如12×12需要18字节，16×16需要32字节，8×8需要8字节）<br>
             <strong>取模规则说明：</strong><br>
-            • <strong>12x12字库模式</strong>：专门为12x12字库设计，高位在前，按行连续存储<br>
+            • <strong>通用字库模式</strong>：支持任意尺寸，高位在前，横向先上下后左右扫描<br>
             • <strong>连续位流</strong>：原始模式，按行扫描，bit0在左，连续存储<br>
             • <strong>行字节模式</strong>：每行数据对齐到字节边界，常用于LCD显示<br>
             • <strong>列字节模式</strong>：按列取模，每列数据对齐到字节边界<br>
@@ -315,9 +315,10 @@
             }
         }
 
-        // 12x12字库模式 (高位在前，按行连续)
+        // 通用字库模式 (高位在前，横向先上下后左右)
         function fillFont12x12(fontData, size, cells) {
-            let debugInfo = '12x12字库模式解析:\n';
+            let debugInfo = '通用字库模式解析:\n';
+            debugInfo += `尺寸: ${size}x${size}\n`;
             debugInfo += '原始数据: ' + fontData.map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(', ') + '\n\n';
             
             // 将所有字节转换为完整的位流，高位在前
@@ -332,25 +333,25 @@
             debugInfo += `总位数: ${allBits.length}\n`;
             debugInfo += `位流: ${allBits}\n\n`;
             
-            // 按行填充，每行size个位
-            for (let row = 0; row < size; row++) {
-                let rowBits = '';
-                for (let col = 0; col < size; col++) {
-                    const bitIndex = row * size + col;
+            // 按列填充，横向先上下后左右 (每列size个位)
+            for (let col = 0; col < size; col++) {
+                let colBits = '';
+                for (let row = 0; row < size; row++) {
+                    const bitIndex = col * size + row;  // 按列扫描的索引
                     
                     if (bitIndex < allBits.length) {
                         const bitValue = allBits[bitIndex];
-                        rowBits += bitValue;
+                        colBits += bitValue;
                         
-                        const cellIndex = row * size + col;
+                        const cellIndex = row * size + col;  // 显示位置还是按行列索引
                         if (cellIndex < cells.length && bitValue === '1') {
                             cells[cellIndex].classList.add('active');
                         }
                     } else {
-                        rowBits += '0';
+                        colBits += '0';
                     }
                 }
-                debugInfo += `行${row.toString().padStart(2)}: ${rowBits}\n`;
+                debugInfo += `列${col.toString().padStart(2)}: ${colBits}\n`;
             }
             
             console.log(debugInfo);
