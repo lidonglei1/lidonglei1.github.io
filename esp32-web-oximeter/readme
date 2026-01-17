@@ -1,4 +1,6 @@
 20260117上传到core2中，webserver显示多页面正常
+    导出历史数据画图见：/Users/dlgg/prj/python/python_prjs/draw/python_draw_json
+
 
 由于浏览器的安全策略（CORS - 跨源资源共享），浏览器的安全策略不允许跨源请求
 页面拆分之后需要运行python3 -m http.server 8000
