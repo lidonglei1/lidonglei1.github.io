@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modbus CRC16 校验</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            max-width: 720px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+        }
+        input[type="text"],
+        textarea {
+            width: 100%;
+            max-width: 640px;
+            padding: 10px;
+            box-sizing: border-box;
+            font-family: Consolas, "Courier New", monospace;
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        button {
+            margin-top: 12px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .hint {
+            color: #666;
+            font-size: 14px;
+            margin: 8px 0 16px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+        .result h2 {
+            margin: 0 0 12px;
+            font-size: 18px;
+        }
+        .result p {
+            margin: 8px 0;
+            font-family: Consolas, "Courier New", monospace;
+        }
+        .valid {
+            color: #0a7;
+            font-weight: bold;
+        }
+        .invalid {
+            color: #c33;
+            font-weight: bold;
+        }
+        .mono {
+            font-family: Consolas, "Courier New", monospace;
+        }
+    </style>
+    <script>
+        // 解析十六进制输入，支持空格、逗号、0x 前缀及连续写法
+        function parseHexInput(text) {
+            const cleaned = text
+                .replace(/0x/gi, " ")
+                .replace(/[,，;；]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim()
+                .toUpperCase();
+
+            if (!cleaned) {
+                return { bytes: [], error: "请输入十六进制数据" };
+            }
+
+            const parts = cleaned.split(" ");
+            const bytes = [];
+
+            for (const part of parts) {
+                if (!/^[0-9A-F]+$/.test(part)) {
+                    return { bytes: [], error: "包含非法字符: " + part };
+                }
+                if (part.length % 2 !== 0) {
+                    return { bytes: [], error: "字节长度应为偶数位: " + part };
+                }
+                for (let i = 0; i < part.length; i += 2) {
+                    bytes.push(parseInt(part.slice(i, i + 2), 16));
+                }
+            }
+
+            return { bytes, error: null };
+        }
+
+        // Modbus RTU CRC16，多项式 0xA001，初值 0xFFFF
+        function modbusCRC16(bytes) {
+            let crc = 0xFFFF;
+
+            for (let i = 0; i < bytes.length; i++) {
+                crc ^= bytes[i];
+                for (let j = 0; j < 8; j++) {
+                    if (crc & 0x0001) {
+                        crc = (crc >>> 1) ^ 0xA001;
+                    } else {
+                        crc >>>= 1;
+                    }
+                }
+            }
+
+            return crc & 0xFFFF;
+        }
+
+        function toHexByte(value) {
+            return value.toString(16).toUpperCase().padStart(2, "0");
+        }
+
+        function formatBytes(bytes) {
+            return bytes.map((b) => toHexByte(b)).join(" ");
+        }
+
+        function calculateCRC16() {
+            const input = document.getElementById("hexInput").value;
+            const resultBox = document.getElementById("resultBox");
+            const errorBox = document.getElementById("errorBox");
+
+            const parsed = parseHexInput(input);
+
+            if (parsed.error) {
+                errorBox.textContent = parsed.error;
+                errorBox.className = "invalid";
+                resultBox.style.display = "none";
+                return;
+            }
+
+            if (parsed.bytes.length === 0) {
+                errorBox.textContent = "请输入至少 1 个字节";
+                errorBox.className = "invalid";
+                resultBox.style.display = "none";
+                return;
+            }
+
+            errorBox.textContent = "";
+            errorBox.className = "";
+
+            const crc = modbusCRC16(parsed.bytes);
+            const crcLow = crc & 0xFF;
+            const crcHigh = (crc >> 8) & 0xFF;
+            const fullFrame = parsed.bytes.concat([crcLow, crcHigh]);
+
+            document.getElementById("inputBytes").textContent = formatBytes(parsed.bytes);
+            document.getElementById("crcValue").textContent =
+                "0x" + toHexByte(crcHigh) + toHexByte(crcLow) + " (" + crc + ")";
+            document.getElementById("crcLow").textContent = "0x" + toHexByte(crcLow);
+            document.getElementById("crcHigh").textContent = "0x" + toHexByte(crcHigh);
+            document.getElementById("crcOrder").textContent =
+                toHexByte(crcLow) + " " + toHexByte(crcHigh);
+            document.getElementById("fullFrame").textContent = formatBytes(fullFrame);
+
+            resultBox.style.display = "block";
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            document.getElementById("calcBtn").addEventListener("click", calculateCRC16);
+            document.getElementById("hexInput").addEventListener("keydown", function (event) {
+                if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    calculateCRC16();
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <h1>Modbus CRC16 校验</h1>
+
+    <label for="hexInput">输入十六进制数据</label>
+    <textarea id="hexInput" placeholder="例如: 01 03 00 00 00 01&#10;或: 010300000001&#10;或: 0x01 0x03 0x00 0x00 0x00 0x01"></textarea>
+    <p class="hint">支持空格、逗号分隔，或连续十六进制字符串；可带 0x 前缀。</p>
+
+    <button id="calcBtn" type="button">计算 CRC16</button>
+
+    <p id="errorBox"></p>
+
+    <div id="resultBox" class="result" style="display: none;">
+        <h2>计算结果</h2>
+        <p>输入数据: <span id="inputBytes" class="mono"></span></p>
+        <p>CRC16 值: <span id="crcValue" class="valid"></span></p>
+        <p>CRC 低字节 (先发): <span id="crcLow" class="mono"></span></p>
+        <p>CRC 高字节 (后发): <span id="crcHigh" class="mono"></span></p>
+        <p>Modbus 发送顺序 (低字节在前): <span id="crcOrder" class="mono valid"></span></p>
+        <p>完整帧 (数据 + CRC): <span id="fullFrame" class="mono valid"></span></p>
+    </div>
+</body>
+</html>
